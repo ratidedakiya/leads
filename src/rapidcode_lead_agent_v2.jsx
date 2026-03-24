@@ -935,6 +935,7 @@ function getIColor(industry) {
 }
 
 export default function App() {
+  const anthropicApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
   const [tab, setTab] = useState("dashboard");
   const [segment, setSegment] = useState("ALL");
   const [filter, setFilter] = useState("all");
@@ -983,9 +984,20 @@ export default function App() {
 
   const generateMsg = async (lead) => {
     setGenerating(true); setGeneratedMsg("");
+    if (!anthropicApiKey) {
+      setGeneratedMsg("Missing API key: add VITE_ANTHROPIC_API_KEY in .env");
+      setGenerating(false);
+      return;
+    }
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true"
+        },
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
           system:`You are an outreach specialist for RapidCode (rapidcode.in), a no-code/AI development agency using Lovable, Replit, n8n, and Claude API. Write a highly personalized, concise B2B/B2C cold outreach message. Be conversational and specific. Max 130 words. Sign off: "Rati | RapidCode | rapidcode.in". Never sound like a bot.`,
@@ -1002,17 +1014,32 @@ Last activity: ${lead.lastActivity}
 Make it feel written specifically for them. Reference their specific situation.` }]
         })
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Anthropic ${res.status}: ${errText}`);
+      }
       const d = await res.json();
       setGeneratedMsg(d.content?.[0]?.text || "Unable to generate message.");
-    } catch { setGeneratedMsg("API error — check your connection."); }
+    } catch (e) { setGeneratedMsg(`API error: ${e.message}`); }
     setGenerating(false);
   };
 
   const analyzeAI = async (lead) => {
     setAnalyzing(true); setAiAnalysis("");
+    if (!anthropicApiKey) {
+      setAiAnalysis("Missing API key: add VITE_ANTHROPIC_API_KEY in .env");
+      setAnalyzing(false);
+      return;
+    }
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true"
+        },
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:800,
           system:"You are a senior sales strategist for a no-code/AI development agency. Provide sharp, specific, actionable lead analysis. Use bullet points. Be direct.",
@@ -1033,9 +1060,13 @@ Provide:
 5. Upsell opportunity after initial project` }]
         })
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Anthropic ${res.status}: ${errText}`);
+      }
       const d = await res.json();
       setAiAnalysis(d.content?.[0]?.text || "Analysis unavailable.");
-    } catch { setAiAnalysis("Claude API error."); }
+    } catch (e) { setAiAnalysis(`Claude API error: ${e.message}`); }
     setAnalyzing(false);
   };
 
